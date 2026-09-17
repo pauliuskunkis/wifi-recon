@@ -1,0 +1,21 @@
+# captured data (nearby networks' MACs/SSIDs, never publish)
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+*.cap
+*.pcap
+*.pcapng
+*.kismet
+data/
+logs/
+captures/
+
+# python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# secrets
+.env
