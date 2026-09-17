@@ -1,4 +1,4 @@
-# kami-pi — Portable WiFi Reconnaissance & Logging Device
+# kami-pi — Portable WiFi Logging Device
 
 > A headless Raspberry Pi that passively listens to nearby WiFi management
 > frames and logs what's around it — built to learn Linux, networking, and
