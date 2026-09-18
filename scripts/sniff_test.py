@@ -2,7 +2,7 @@
 # WiFi beacon sniffer - patikros skriptas (kol kas tik spausdina, nieko nesaugo)
 
 # iš scapy bibliotekos pasiimam du įrankius: sniff (gaudymui) ir Dot11Beacon (beacon kadro šablonui)
-from scapy.all import sniff, Dot11Beacon, Dot11Elt, RadioTap
+from scapy.all import sniff, Dot11, Dot11Beacon, Dot11Elt, RadioTap
 
 # callback: sniff iškvies šią funkciją kiekvienam pagautam kadrui; kadras ateina kaip pkt
 def show(pkt):
@@ -13,7 +13,8 @@ def show(pkt):
 		except:
 			ssid = "<decode error>"
 		signal = pkt[RadioTap].dBm_AntSignal
-		print(ssid, signal) #ssid - kintamasis kuris, identifikuoja, koks tinklas siuntė beacon ; signal - kintamasis, kuris fiksuoja signalo stiprumą
+		bssid = pkt[Dot11].addr2
+		print(ssid, signal, bssid) #ssid - kintamasis kuris, identifikuoja, koks tinklas siuntė beacon ; signal - kintamasis, kuris fiksuoja signalo stiprumą
 
 # klausom wlan1 (Alfa monitor režime); prn=show paduoda kiekvieną kadrą į show
 # sustoja pagavus 10, bet kokių kadrų
