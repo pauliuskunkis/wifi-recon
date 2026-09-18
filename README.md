@@ -25,7 +25,7 @@
 	## Architecture
 	The Pi uses two separate radios at the same time:
 	- `wlan0` — the Pi's built-in WiFi. It stays connected to my home router and carries my SSH session and internet. I never touch it; if it drops, I lose remote 	access to the device.
-	- `wlan1` — the Alfa adapter. This is the one I swi	tch into monitor mode to capture frames.
+	- `wlan1` — the Alfa adapter. This is the one I switch into monitor mode to capture frames.
 
 	Two radios matter because a radio in monitor mode can't also act as a normal client on my network. With only one radio, putting it into monitor mode would kill 	my own connection to the Pi. With two, `wlan0` keeps me connected and in control while `wlan1` does the listening — management and capture at once, without 	interfering.
 
@@ -57,7 +57,13 @@
 	- **Beacons only:** it filters for beacon frames and ignores probe requests and data frames, so it only logs access points that are actually broadcasting.
 	- **Decoding the name:** the SSID comes in as raw bytes, so it's decoded to readable text (UTF-8).
 	- **Error handling:** the decode is wrapped in try/except. Real WiFi traffic includes networks with hidden or non-text SSIDs that can't be decoded — without 	this guard, one bad frame would crash the whole capture. Since the logger is meant to run unattended for hours, it has to survive messy data.
-	- **Status:** currently prints to screen only; writing to CSV/SQLite is next.
+	- **Storage:** each captured beacon is written to a local SQLite database (`captures.db`) with four fields: timestamp, BSSID, SSID, and signal. A separate read script queries the data back out. Values are inserted using parameterized queries (see Security note).
+
+	## Data storage (SQLite)
+	Captured beacons are stored in a local SQLite database (`captures.db`). Each row holds four columns: `timestamp` (when it was seen), `bssid` (the access point's MAC address), `ssid` (network name), and `signal` (strength in dBm). I chose SQLite over a plain text file because it lets me *query* the data — for example, filtering out duplicates when the same network is captured multiple times, or finding the strongest signals. A (`db_setup.py`) script creates the table, the logger inserts rows, and `db_read.py` reads them back.
+
+		### Security note
+		All values are inserted using `?` placeholders (parameterized queries) instead of building the SQL string directly. The SSID is untrusted input — anyone can name their WiFi network anything, including text crafted to look like a SQL command. Without placeholders, a malicious network name could alter my query (for example, dropping the whole table). Parameterized queries keep the SSID as data, never as executable SQL — this prevents SQL injection.
 
 	## Notable problem solved: the driver
 	Following the common advice, I first tried to compile the out-of-tree `aircrack-ng/rtl8812au` driver with DKMS, and the build failed. It wasn't out of memory 	or a bug in the driver's logic — the compiler couldn't find the driver's own header files. Root cause: the driver's build files point the compiler to those 	headers using a kernel build variable (`$(src)`) whose meaning changed around kernel 6.13. My Pi runs kernel 6.18, so the 2019-era driver was pointing the 	compiler at the wrong place. Rather than patch that (which would only lead to the next incompatibility), I found that the driver's own maintainer now 	recommends the in-kernel `rtw88` driver for kernel 6.14+ — which is also better, because it does monitor mode the standard (mac80211) way. I dropped the out-	of-tree driver and used the in-kernel one: nothing to compile, better supported.
@@ -67,7 +73,7 @@
 
 	## Status & roadmap
 	- Done: in-kernel driver, monitor mode, airodump-ng mapping working.
-	- Next: Python + scapy logger writing frames to SQLite/CSV; systemd autostart.
+	- Done: Python + scapy logger writing frames to SQLite/CSV; systemd autostart.
 	- Ideas: GPS wardriving, Pi-hole, WireGuard VPN, monitoring stack (Prometheus / Grafana).
 
 	## What I learned (setup)
@@ -80,3 +86,8 @@
 	- The difference between a variable and a function.
 	- Handling bad input with try/except so the program doesn't crash.
 	- Using scapy's building blocks: `sniff`, `Dot11Beacon`, `Dot11Elt`, `RadioTap`.
+	## What I learned (SQLite stage)
+	- SQL basics: `CREATE TABLE` defines the table, `INSERT` adds rows, `SELECT` reads them back.
+	- SQL injection and why parameterized queries (`?`) matter — treating untrusted input as data, not code, is one of the most important secure-coding habits.
+	- Name shadowing: naming a script after a Python library (e.g. `inspect.py`) makes Python import your file instead of the real library, causing crashes.
+	- A deeper understanding of how libraries like scapy actually work.
