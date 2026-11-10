@@ -22,21 +22,21 @@
 	- 20000mAh USB-C power bank (5V/3A) for portable use, GPIO active cooling fan,
 	  32 GB microSD.
 
-	## Architecture
+## Architecture
 	The Pi uses two separate radios at the same time:
 	- `wlan0` — the Pi's built-in WiFi. It stays connected to my home router and carries my SSH session and internet. I never touch it; if it drops, I lose remote 	access to the device.
 	- `wlan1` — the Alfa adapter. This is the one I switch into monitor mode to capture frames.
 
 	Two radios matter because a radio in monitor mode can't also act as a normal client on my network. With only one radio, putting it into monitor mode would kill 	my own connection to the Pi. With two, `wlan0` keeps me connected and in control while `wlan1` does the listening — management and capture at once, without 	interfering.
 
-	## Setup
+## Setup
 	1. Flash Raspberry Pi OS Lite (64-bit), enable SSH, connect over `wlan0`.
 	2. `sudo apt update && sudo apt full-upgrade`, then reboot.
 	3. Install capture tools: `sudo apt install aircrack-ng iw`.
 
 	Note on the driver: most guides tell you to download and compile an out-of-tree Realtek driver. On a current kernel that is unnecessary — the OS already ships 	an in-kernel driver (`rtw88_8821au`) that supports this chipset and handles monitor mode natively. I just plug the adapter in and it works. (See "Notable 	problem solved" for why.)
 
-	## Usage
+## Usage
 		### Enabling monitor mode
 		Switch only `wlan1` into monitor mode without dropping SSH on `wlan0`:
 		sudo nmcli device set wlan1 managed no
@@ -62,8 +62,8 @@
 ## Data storage (SQLite)
 	Captured beacons are stored in a local SQLite database (`captures.db`). Each row holds four columns: `timestamp` (when it was seen), `bssid` (the access point's MAC address), `ssid` (network name), and `signal` (strength in dBm). I chose SQLite over a plain text file because it lets me *query* the data — for example, filtering out duplicates when the same network is captured multiple times, or finding the strongest signals. A (`db_setup.py`) script creates the table, the logger inserts rows, and `db_read.py` reads them back.
 
-### Security note
-		All values are inserted using `?` placeholders (parameterized queries) instead of building the SQL string directly. The SSID is untrusted input — anyone can name their WiFi network anything, including text crafted to look like a SQL command. Without placeholders, a malicious network name could alter my query (for example, dropping the whole table). Parameterized queries keep the SSID as data, never as executable SQL — this prevents SQL injection.
+## Security note
+	All values are inserted using `?` placeholders (parameterized queries) instead of building the SQL string directly. The SSID is untrusted input — anyone can name their WiFi network anything, including text crafted to look like a SQL command. Without placeholders, a malicious network name could alter my query (for example, dropping the whole table). Parameterized queries keep the SSID as data, never as executable SQL — this prevents SQL injection.
 
 ## Notable problem solved: the driver
 	Following the common advice, I first tried to compile the out-of-tree `aircrack-ng/rtl8812au` driver with DKMS, and the build failed. It wasn't out of memory 	or a bug in the driver's logic — the compiler couldn't find the driver's own header files. Root cause: the driver's build files point the compiler to those 	headers using a kernel build variable (`$(src)`) whose meaning changed around kernel 6.13. My Pi runs kernel 6.18, so the 2019-era driver was pointing the 	compiler at the wrong place. Rather than patch that (which would only lead to the next incompatibility), I found that the driver's own maintainer now 	recommends the in-kernel `rtw88` driver for kernel 6.14+ — which is also better, because it does monitor mode the standard (mac80211) way. I dropped the out-	of-tree driver and used the in-kernel one: nothing to compile, better supported.
